@@ -52,4 +52,5 @@ jobs:
             echo "FRONTEND_IMAGE=ghcr.io/${{ steps.repo.outputs.name }}-frontend:latest" >> .env
             docker compose pull
             docker compose up -d --remove-orphans
+            docker compose restart nginx
             docker image prune -f
