@@ -22,4 +22,5 @@ dependencies = [
     "gunicorn>=23.0",
     "whitenoise[brotli]>=6.9",
     "pymupdf>=1.24.0",
+    "anthropic>=0.49.0",
 ]
