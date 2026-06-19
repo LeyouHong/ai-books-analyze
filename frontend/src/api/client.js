@@ -1,7 +1,9 @@
 import axios from 'axios'
 
+const apiBase = import.meta.env.VITE_API_BASE_URL ?? ''
+
 const client = axios.create({
-  baseURL: '/api',
+  baseURL: `${apiBase}/api`,
   headers: { 'Content-Type': 'application/json' },
 })
 
@@ -62,7 +64,7 @@ client.interceptors.response.use(
     }
 
     try {
-      const { data } = await axios.post('/api/token/refresh/', { refresh: refreshToken })
+      const { data } = await axios.post(`${apiBase}/api/token/refresh/`, { refresh: refreshToken })
       const newAccess = data.access
 
       localStorage.setItem('access_token', newAccess)

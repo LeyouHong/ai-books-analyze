@@ -26,7 +26,7 @@ export default function AppNavbar() {
     function connect() {
       const token = localStorage.getItem('access_token')
       if (!token) return
-      es = new EventSource(`/api/notifications/stream/?token=${encodeURIComponent(token)}`)
+      es = new EventSource(`${import.meta.env.VITE_API_BASE_URL ?? ''}/api/notifications/stream/?token=${encodeURIComponent(token)}`)
       es.addEventListener('init', (e) => {
         setNotifications(JSON.parse(e.data))
       })
