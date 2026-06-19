@@ -1,0 +1,30 @@
+body {
+  margin: 0;
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100svh;
+}
+
+/* Fix alert close button vertical alignment */
+.alert-dismissible .btn-close {
+  padding: 8px 16px;
+}
+
+/* Recharts — remove focus outline on pie/chart elements */
+.recharts-wrapper:focus,
+.recharts-wrapper *:focus {
+  outline: none;
+}
+
+/* PDF reader modal */
+.pdf-reader-modal .modal-content {
+  background: #2d2d3d;
+}
+.pdf-reader-modal .react-pdf__Page {
+  border-radius: 4px;
+  overflow: hidden;
+}
