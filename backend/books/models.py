@@ -22,7 +22,7 @@ class Book(models.Model):
     pdf         = models.FileField(upload_to='books/pdfs/', blank=True, null=True)
     tags        = models.ManyToManyField(Tag, blank=True, related_name='books')
     created_by  = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='books')
-    created_at  = models.DateTimeField(auto_now_add=True, db_index=True)
+    created_at  = models.DateTimeField(auto_now_add=True)
     updated_at  = models.DateTimeField(auto_now=True)
 
     class Meta:

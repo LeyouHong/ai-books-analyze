@@ -60,7 +60,7 @@ class IsOwnerOrReadOnly(permissions.BasePermission):
 
 
 def _annotated_books(user):
-    return Book.objects.select_related('created_by').annotate(
+    return Book.objects.annotate(
         avg_rating=Avg('reviews__rating'),
         review_count=Count('reviews', distinct=True),
     ).prefetch_related(
