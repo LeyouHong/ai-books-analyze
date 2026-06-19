@@ -2,6 +2,9 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
+# Prefer IPv4 over IPv6 (VPS may lack IPv6 connectivity)
+RUN echo "precedence ::ffff:0:0/96 100" >> /etc/gai.conf
+
 RUN pip install --no-cache-dir uv
 
 COPY pyproject.toml .
