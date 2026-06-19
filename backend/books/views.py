@@ -649,7 +649,7 @@ class NotificationSSEView(View):
                     if msg and msg['type'] == 'message':
                         yield f'event: notification\ndata: {msg["data"]}\n\n'
 
-                    if time.time() - last_heartbeat >= 30:
+                    if time.time() - last_heartbeat >= 10:
                         yield ': heartbeat\n\n'
                         last_heartbeat = time.time()
             finally:

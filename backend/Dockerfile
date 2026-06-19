@@ -17,4 +17,4 @@ RUN SECRET_KEY=dummy DATABASE_URL=sqlite:////tmp/dummy.db \
     python manage.py collectstatic --noinput
 
 EXPOSE 8000
-CMD ["gunicorn", "config.wsgi", "--bind", "0.0.0.0:8000", "--workers", "4", "--timeout", "60", "--log-file", "-"]
+CMD ["gunicorn", "config.wsgi", "--bind", "0.0.0.0:8000", "--worker-class", "gevent", "--workers", "2", "--worker-connections", "100", "--timeout", "3600", "--log-file", "-"]
