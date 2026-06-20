@@ -8,5 +8,5 @@ RUN npm run build
 FROM nginx:alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-RUN echo "application/javascript mjs;" >> /etc/nginx/mime.types
+RUN sed -i 's|application/javascript\s*js;|application/javascript js mjs;|' /etc/nginx/mime.types
 EXPOSE 80
