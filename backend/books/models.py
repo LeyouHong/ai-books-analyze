@@ -97,8 +97,14 @@ class Notification(models.Model):
 
 
 class BookAnalysis(models.Model):
+    STATUS_PENDING = 'pending'
+    STATUS_DONE    = 'done'
+    STATUS_ERROR   = 'error'
+
     book       = models.OneToOneField(Book, on_delete=models.CASCADE, related_name='analysis')
-    data       = models.JSONField()
+    status     = models.CharField(max_length=10, default=STATUS_DONE)
+    data       = models.JSONField(null=True, blank=True)
+    error      = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -118,3 +124,20 @@ class ReadingProgress(models.Model):
 
     def __str__(self):
         return f"{self.user} — {self.book} — p.{self.page}"
+
+
+class ChatMessage(models.Model):
+    ROLE_USER      = 'user'
+    ROLE_ASSISTANT = 'assistant'
+
+    user       = models.ForeignKey(User, on_delete=models.CASCADE, related_name='chat_messages')
+    book       = models.ForeignKey(Book, on_delete=models.CASCADE, related_name='chat_messages')
+    role       = models.CharField(max_length=10)
+    content    = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"{self.user} [{self.role}] → {self.book} @ {self.created_at:%Y-%m-%d %H:%M}"

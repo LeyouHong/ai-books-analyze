@@ -13,6 +13,7 @@ from drf_spectacular.utils import extend_schema
 
 from .models import Book, Tag, Bookshelf, Review, ReadingProgress, TagFollow, Notification, BookAnalysis
 from .serializers import BookSerializer, TagSerializer, ReviewSerializer, NotificationSerializer
+from .constants import EXTRACT_PROMPT
 
 
 # ── Redis helpers ──────────────────────────────────────────────────────────────
@@ -438,6 +439,13 @@ class AnalyzePdfView(views.APIView):
             message = client.messages.create(
                 model='claude-haiku-4-5-20251001',
                 max_tokens=1024,
+                system=[
+                    {
+                        'type': 'text',
+                        'text': EXTRACT_PROMPT,
+                        'cache_control': {'type': 'ephemeral'},
+                    }
+                ],
                 messages=[{
                     'role': 'user',
                     'content': [
@@ -448,24 +456,11 @@ class AnalyzePdfView(views.APIView):
                                 'media_type': 'application/pdf',
                                 'data': pdf_doc,
                             },
-                        },
-                        {
-                            'type': 'text',
-                            'text': (
-                                'Analyze this document and extract book metadata. '
-                                'Return ONLY a valid JSON object — no markdown, no extra text — with these exact fields:\n'
-                                '{\n'
-                                '  "title": "the book title",\n'
-                                '  "author": "author name(s)",\n'
-                                '  "description": "2-3 sentence summary of what this book is about",\n'
-                                '  "tags": ["tag1", "tag2", "tag3"]\n'
-                                '}\n'
-                                'Tags should be 3-5 short genre or topic keywords (e.g. "Fiction", "Science", "History").\n'
-                                'If you cannot determine a field, use an empty string or empty array.'
-                            ),
+                            'cache_control': {'type': 'ephemeral'},
                         },
                     ],
                 }],
+                extra_headers={'anthropic-beta': 'prompt-caching-2024-07-31'},
             )
 
             raw = message.content[0].text.strip()
@@ -494,22 +489,6 @@ class AnalyzePdfView(views.APIView):
 
 # ── Book AI Analysis ───────────────────────────────────────────────────────────
 
-ANALYSIS_PROMPT = (
-    'You are a literary analyst. Analyze this book thoroughly and return a JSON object '
-    'with exactly these fields (no markdown fences, no extra text):\n'
-    '{\n'
-    '  "summary": "3-4 paragraph deep summary covering the main ideas and structure",\n'
-    '  "key_themes": ["theme 1", "theme 2", "theme 3", "theme 4", "theme 5"],\n'
-    '  "target_audience": "Who will benefit most from this book",\n'
-    '  "difficulty": "Beginner | Intermediate | Advanced",\n'
-    '  "key_takeaways": ["takeaway 1", "takeaway 2", "takeaway 3", "takeaway 4", "takeaway 5"],\n'
-    '  "writing_style": "Brief description of the author\'s style, tone, and approach",\n'
-    '  "notable_quote": "One memorable or representative quote from the book, or empty string if none"\n'
-    '}\n'
-    'Be specific and insightful. Base your analysis on the actual content, not generic descriptions.'
-)
-
-
 class BookAnalysisView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -517,83 +496,39 @@ class BookAnalysisView(views.APIView):
         """Return cached analysis if it exists."""
         book = get_object_or_404(Book, pk=pk)
         try:
-            analysis = book.analysis
-            return Response({'data': analysis.data, 'updated_at': analysis.updated_at})
+            a = book.analysis
+            return Response({
+                'status':     a.status,
+                'data':       a.data,
+                'error':      a.error,
+                'updated_at': a.updated_at,
+            })
         except BookAnalysis.DoesNotExist:
-            return Response({'data': None})
+            return Response({'status': None, 'data': None})
 
     def post(self, request, pk):
-        """Generate (or regenerate) AI analysis for a book."""
-        import base64
-        import json
-        import anthropic
+        """Enqueue AI analysis for a book and return 202 immediately."""
         from django.conf import settings as django_settings
+        from .tasks import generate_book_analysis
 
-        api_key = getattr(django_settings, 'ANTHROPIC_API_KEY', '')
-        if not api_key:
+        if not getattr(django_settings, 'ANTHROPIC_API_KEY', ''):
             return Response({'detail': 'ANTHROPIC_API_KEY is not configured.'}, status=503)
 
         book = get_object_or_404(Book, pk=pk)
 
-        # Build content blocks for Claude
-        content = []
-
-        # If the book has a PDF, send first 10 pages
-        if book.pdf:
-            try:
-                import fitz
-                pdf_bytes = book.pdf.read()
-                doc = fitz.open(stream=pdf_bytes, filetype='pdf')
-                small = fitz.open()
-                for i in range(min(10, len(doc))):
-                    small.insert_pdf(doc, from_page=i, to_page=i)
-                small_bytes = small.tobytes()
-                small.close()
-                doc.close()
-                content.append({
-                    'type': 'document',
-                    'source': {
-                        'type': 'base64',
-                        'media_type': 'application/pdf',
-                        'data': base64.b64encode(small_bytes).decode(),
-                    },
-                })
-            except Exception:
-                pass   # fall back to text-only if PDF fails
-
-        # Always include text metadata as fallback / supplement
-        meta = (
-            f'Title: {book.title}\n'
-            f'Author: {book.author}\n'
-            f'Tags: {", ".join(book.tags.values_list("name", flat=True))}\n'
-            f'Description: {book.description or "(none provided)"}'
+        # Mark as pending (create or reset)
+        BookAnalysis.objects.update_or_create(
+            book=book,
+            defaults={
+                'status': BookAnalysis.STATUS_PENDING,
+                'data':   None,
+                'error':  '',
+            },
         )
-        content.append({'type': 'text', 'text': meta + '\n\n' + ANALYSIS_PROMPT})
 
-        try:
-            client  = anthropic.Anthropic(api_key=api_key)
-            message = client.messages.create(
-                model='claude-sonnet-4-6',
-                max_tokens=2048,
-                messages=[{'role': 'user', 'content': content}],
-            )
-            raw = message.content[0].text.strip()
-            if raw.startswith('```'):
-                raw = raw.split('```')[1]
-                if raw.startswith('json'):
-                    raw = raw[4:]
-            data = json.loads(raw.strip())
-        except json.JSONDecodeError as exc:
-            return Response({'detail': f'AI returned malformed JSON: {exc}'}, status=502)
-        except anthropic.APIError as exc:
-            return Response({'detail': f'AI API error: {exc}'}, status=502)
-        except Exception as exc:
-            return Response({'detail': f'Analysis failed: {exc}'}, status=500)
+        generate_book_analysis.delay(book.pk)
 
-        analysis, _ = BookAnalysis.objects.update_or_create(
-            book=book, defaults={'data': data}
-        )
-        return Response({'data': analysis.data, 'updated_at': analysis.updated_at}, status=201)
+        return Response({'status': BookAnalysis.STATUS_PENDING}, status=202)
 
 
 class NotificationSSEView(View):

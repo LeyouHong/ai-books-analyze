@@ -195,6 +195,13 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024   # 10 MB
 # Redis
 REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
 
+# Celery
+CELERY_BROKER_URL        = REDIS_URL
+CELERY_RESULT_BACKEND    = REDIS_URL
+CELERY_TASK_SERIALIZER   = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_ACCEPT_CONTENT    = ['json']
+
 # CORS
 CORS_ALLOWED_ORIGINS = [
     o.strip() for o in os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:3000').split(',') if o.strip()

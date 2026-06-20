@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppNavbar from '../components/AppNavbar'
 import PdfReaderModal from '../components/PdfReaderModal'
 import ReviewModal from '../components/ReviewModal'
+import BookChat from '../components/BookChat'
 import { getBook, getReviews, setShelf, removeFromShelf, getBookAnalysis, generateBookAnalysis } from '../api/books'
 import { getMe } from '../api/users'
 
@@ -177,6 +178,9 @@ export default function BookDetailPage() {
         {/* AI Analysis */}
         <AiAnalysisSection bookId={id} hasPdf={!!book.pdf} />
 
+        {/* AI Chat */}
+        <BookChat bookId={id} bookTitle={book.title} />
+
         {/* Reviews */}
         <div className="mt-4">
           <div className="d-flex align-items-center justify-content-between mb-3">
@@ -220,6 +224,9 @@ function AiAnalysisSection({ bookId, hasPdf }) {
   const { data, isLoading } = useQuery({
     queryKey: ['book-analysis', bookId],
     queryFn: () => getBookAnalysis(bookId),
+    // Poll every 3 s while the backend is still running the analysis
+    refetchInterval: (query) =>
+      query.state.data?.status === 'pending' ? 3000 : false,
   })
 
   const generate = useMutation({
@@ -227,7 +234,10 @@ function AiAnalysisSection({ bookId, hasPdf }) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['book-analysis', bookId] }),
   })
 
-  const analysis = data?.data ?? null
+  const status   = data?.status ?? null
+  const analysis = data?.data   ?? null
+  const isPending = generate.isPending || status === 'pending'
+  const hasResult = status === 'done' && analysis
 
   return (
     <div className="mt-4 rounded-4 border overflow-hidden">
@@ -239,21 +249,21 @@ function AiAnalysisSection({ bookId, hasPdf }) {
         <div className="d-flex align-items-center gap-2">
           <span style={{ fontSize: 18 }}>🤖</span>
           <span className="fw-semibold">AI Analysis</span>
-          {analysis && (
+          {hasResult && (
             <span className="badge text-bg-primary ms-1" style={{ fontSize: 10, fontWeight: 400 }}>
               claude-sonnet
             </span>
           )}
         </div>
-        {analysis && (
+        {hasResult && (
           <Button
             variant="outline-secondary"
             size="sm"
             className="rounded-3"
             onClick={() => generate.mutate()}
-            disabled={generate.isPending}
+            disabled={isPending}
           >
-            {generate.isPending ? <Spinner animation="border" size="sm" /> : '↻ Regenerate'}
+            {isPending ? <Spinner animation="border" size="sm" /> : '↻ Regenerate'}
           </Button>
         )}
       </div>
@@ -261,7 +271,7 @@ function AiAnalysisSection({ bookId, hasPdf }) {
       <div className="p-4" style={{ background: 'var(--bs-body-bg)' }}>
         {isLoading ? (
           <div className="text-center py-3"><Spinner animation="border" variant="primary" size="sm" /></div>
-        ) : generate.isPending ? (
+        ) : isPending ? (
           <div className="py-3">
             <div className="d-flex align-items-center gap-2 mb-2">
               <Spinner animation="border" size="sm" variant="primary" />
@@ -269,16 +279,24 @@ function AiAnalysisSection({ bookId, hasPdf }) {
             </div>
             <ProgressBar animated now={100} variant="primary" style={{ height: 3 }} />
           </div>
-        ) : generate.isError ? (
+        ) : status === 'error' ? (
           <Alert variant="danger" className="small rounded-3 py-2 mb-0">
-            {generate.error?.response?.data?.detail ?? 'Analysis failed. Please try again.'}
+            Analysis failed. Please try again.
+            <Button
+              variant="link"
+              size="sm"
+              className="p-0 ms-2"
+              onClick={() => generate.mutate()}
+            >
+              Retry
+            </Button>
           </Alert>
-        ) : !analysis ? (
+        ) : !hasResult ? (
           <div className="text-center py-4">
             <p className="text-muted small mb-3">
               {hasPdf
                 ? 'Generate an AI-powered deep analysis of this book — themes, key takeaways, writing style, and more.'
-                : 'Generate an AI-powered analysis based on the book\'s metadata and description.'}
+                : "Generate an AI-powered analysis based on the book's metadata and description."}
             </p>
             <Button
               variant="primary"

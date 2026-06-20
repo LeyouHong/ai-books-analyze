@@ -20,6 +20,12 @@ body {
   outline: none;
 }
 
+/* Streaming cursor blink */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
 /* PDF reader modal */
 .pdf-reader-modal .modal-content {
   background: #2d2d3d;

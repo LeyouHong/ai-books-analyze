@@ -9,12 +9,14 @@ from .views import (
     StatsView, UserStatsView,
     AnalyzePdfView, BookAnalysisView,
 )
+from .chat_views import BookChatView, RecommendationView
 
 urlpatterns = [
     path('books/analyze-pdf/',                  AnalyzePdfView.as_view()),
     path('books/',                              BookListCreateView.as_view()),
     path('books/<int:pk>/',                     BookDetailView.as_view()),
     path('books/<int:pk>/analysis/',            BookAnalysisView.as_view()),
+    path('books/<int:pk>/chat/',                BookChatView.as_view()),
     path('books/<int:pk>/shelf/',               BookshelfView.as_view()),
     path('books/<int:pk>/reviews/',             ReviewListView.as_view()),
     path('books/<int:pk>/my-review/',           UserReviewView.as_view()),
@@ -26,4 +28,5 @@ urlpatterns = [
     path('notifications/mark-read/',            NotificationMarkReadView.as_view()),
     path('admin/stats/',                        StatsView.as_view()),
     path('stats/me/',                           UserStatsView.as_view()),
+    path('chat/recommend/',                     RecommendationView.as_view()),
 ]

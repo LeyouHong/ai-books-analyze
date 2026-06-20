@@ -1,5 +1,72 @@
 import client from './client'
 
+const apiBase = import.meta.env.VITE_API_BASE_URL ?? ''
+
+// ── SSE streaming helper ───────────────────────────────────────────────────────
+
+async function* _readSSE(body) {
+  const reader  = body.getReader()
+  const decoder = new TextDecoder()
+  let buffer    = ''
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() // keep incomplete last line
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue
+      const data = line.slice(6).trim()
+      if (data === '[DONE]') return
+      try {
+        const parsed = JSON.parse(data)
+        if (parsed.error) throw new Error(parsed.error)
+        if (parsed.chunk) yield parsed.chunk
+      } catch (e) {
+        if (e.message !== 'Unexpected end of JSON input') throw e
+      }
+    }
+  }
+}
+
+async function* _streamPost(url, body) {
+  const token = localStorage.getItem('access_token')
+  const res   = await fetch(`${apiBase}/api${url}`, {
+    method:  'POST',
+    headers: {
+      'Content-Type':  'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.detail ?? `Request failed (${res.status})`)
+  }
+  yield* _readSSE(res.body)
+}
+
+// ── Chat API ───────────────────────────────────────────────────────────────────
+
+export function getBookChatHistory(bookId) {
+  return client.get(`/books/${bookId}/chat/`)
+}
+
+export function clearBookChatHistory(bookId) {
+  return client.delete(`/books/${bookId}/chat/`)
+}
+
+export function streamBookChat(bookId, message) {
+  return _streamPost(`/books/${bookId}/chat/`, { message })
+}
+
+export function streamRecommendations(message) {
+  return _streamPost('/chat/recommend/', { message })
+}
+
 export function getBooks({ page = 1, search = '', ordering = '-created_at', tag = null, shelf = null } = {}) {
   return client.get('/books/', {
     params: { page, search, ordering, ...(tag ? { tag } : {}), ...(shelf ? { shelf } : {}) },
