@@ -20,6 +20,15 @@ services:
       - postgres
     restart: unless-stopped
 
+  celery:
+    image: ${BACKEND_IMAGE}
+    env_file: ./backend/.env
+    command: celery -A config worker -l info --concurrency 2
+    depends_on:
+      - redis
+      - postgres
+    restart: unless-stopped
+
   frontend:
     image: ${FRONTEND_IMAGE}
     restart: unless-stopped
