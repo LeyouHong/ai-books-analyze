@@ -14,6 +14,7 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+import random
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.auth import get_user_model
@@ -27,9 +28,29 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 User = get_user_model()
 
 
+def _random_error():
+    """Pick a random error type so each Sentry test click generates a unique event."""
+    choice = random.randint(0, 4)
+    if choice == 0:
+        # ZeroDivisionError
+        _ = 1 / 0
+    elif choice == 1:
+        # ValueError
+        int("not-a-number-" + str(random.randint(1, 10000)))
+    elif choice == 2:
+        # KeyError
+        {}["missing_key_" + str(random.randint(1, 10000))]
+    elif choice == 3:
+        # IndexError
+        [1, 2, 3][random.randint(100, 10000)]
+    else:
+        # RuntimeError
+        raise RuntimeError(f"Sentry test error #{random.randint(1000, 99999)}")
+
+
 def trigger_error(request):
-    """Sentry 验证用：访问 /sentry-debug/ 会故意抛出 ZeroDivisionError。"""
-    division_by_zero = 1 / 0
+    """Sentry 验证用：访问 /sentry-debug/ 会故意抛出一个随机错误。"""
+    _random_error()
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):

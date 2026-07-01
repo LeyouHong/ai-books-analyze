@@ -165,13 +165,36 @@ class AdminUserToggleView(views.APIView):
         return Response({'id': user.id, 'is_active': user.is_active})
 
 
+import random
+
+
+def _random_error():
+    """Pick a random error type so each Sentry test click generates a unique event."""
+    choice = random.randint(0, 4)
+    if choice == 0:
+        # ZeroDivisionError
+        _ = 1 / 0
+    elif choice == 1:
+        # ValueError
+        int("not-a-number-" + str(random.randint(1, 10000)))
+    elif choice == 2:
+        # KeyError
+        {}["missing_key_" + str(random.randint(1, 10000))]
+    elif choice == 3:
+        # IndexError
+        [1, 2, 3][random.randint(100, 10000)]
+    else:
+        # RuntimeError
+        raise RuntimeError(f"Sentry test error #{random.randint(1000, 99999)}")
+
+
 class AdminSentryTestView(views.APIView):
-    """Admin-only endpoint that intentionally triggers an error for Sentry monitoring validation."""
+    """Admin-only endpoint that intentionally triggers a random error for Sentry monitoring validation."""
     permission_classes = [permissions.IsAdminUser]
 
     @extend_schema(request=None, responses={200: None})
     def post(self, request):
-        division_by_zero = 1 / 0  # noqa: F841
+        _random_error()
         return Response({'detail': 'This should never be reached.'})
 
 
