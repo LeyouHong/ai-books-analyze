@@ -165,6 +165,16 @@ class AdminUserToggleView(views.APIView):
         return Response({'id': user.id, 'is_active': user.is_active})
 
 
+class AdminSentryTestView(views.APIView):
+    """Admin-only endpoint that intentionally triggers an error for Sentry monitoring validation."""
+    permission_classes = [permissions.IsAdminUser]
+
+    @extend_schema(request=None, responses={200: None})
+    def post(self, request):
+        division_by_zero = 1 / 0  # noqa: F841
+        return Response({'detail': 'This should never be reached.'})
+
+
 class PasswordResetRequestView(views.APIView):
     permission_classes = [permissions.AllowAny]
 
