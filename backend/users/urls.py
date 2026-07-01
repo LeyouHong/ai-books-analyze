@@ -2,7 +2,7 @@ from django.urls import path
 from .views import (
     RegisterView, MeView, UserDetailView,
     VerifyEmailView, ResendVerificationView, ChangePasswordView,
-    AdminUserListView, AdminUserToggleView,
+    AdminUserListView, AdminUserToggleView, AdminSentryTestView,
     PasswordResetRequestView, PasswordResetConfirmView,
     ChangeEmailRequestView, ChangeEmailConfirmView,
 )
@@ -19,5 +19,6 @@ urlpatterns = [
     path('change-email/confirm/',          ChangeEmailConfirmView.as_view()),
     path('admin/users/',                   AdminUserListView.as_view()),
     path('admin/users/<int:pk>/toggle/',   AdminUserToggleView.as_view()),
+    path('admin/sentry-test/',             AdminSentryTestView.as_view()),
     path('<int:pk>/',                      UserDetailView.as_view()),
 ]

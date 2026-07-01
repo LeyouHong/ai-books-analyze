@@ -11,3 +11,7 @@ export function getAdminUsers({ search = '', page = 1 } = {}) {
 export function toggleUserActive(userId) {
   return client.post(`/users/admin/users/${userId}/toggle/`)
 }
+
+export function triggerSentryError() {
+  return client.post('/users/admin/sentry-test/')
+}
