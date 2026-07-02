@@ -1,3 +1,6 @@
+import uuid
+
+import sentry_sdk
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
@@ -165,37 +168,26 @@ class AdminUserToggleView(views.APIView):
         return Response({'id': user.id, 'is_active': user.is_active})
 
 
-import random
-
-
-def _random_error():
-    """Pick a random error type so each Sentry test click generates a unique event."""
-    choice = random.randint(0, 4)
-    if choice == 0:
-        # ZeroDivisionError
-        _ = 1 / 0
-    elif choice == 1:
-        # ValueError
-        int("not-a-number-" + str(random.randint(1, 10000)))
-    elif choice == 2:
-        # KeyError
-        {}["missing_key_" + str(random.randint(1, 10000))]
-    elif choice == 3:
-        # IndexError
-        [1, 2, 3][random.randint(100, 10000)]
-    else:
-        # RuntimeError
-        raise RuntimeError(f"Sentry test error #{random.randint(1000, 99999)}")
-
-
 class AdminSentryTestView(views.APIView):
-    """Admin-only endpoint that intentionally triggers a random error for Sentry monitoring validation."""
+    """Admin-only endpoint that sends a uniquely-fingerprinted error to Sentry, so every
+    click opens a BRAND-NEW Sentry issue.
+
+    Sentry groups events by exception type + stack trace, so the previous "raise a random
+    error" approach folded every click into the same handful of issues — which is why the
+    board's new-issue notifications never fired. Setting a unique fingerprint forces a new
+    issue per click and returns 200 (no fake 500 in the logs)."""
     permission_classes = [permissions.IsAdminUser]
 
     @extend_schema(request=None, responses={200: None})
     def post(self, request):
-        _random_error()
-        return Response({'detail': 'This should never be reached.'})
+        test_id = uuid.uuid4().hex[:8]
+        try:
+            raise RuntimeError(f"Sentry test error [{test_id}]")
+        except RuntimeError as exc:
+            with sentry_sdk.push_scope() as scope:
+                scope.fingerprint = ["sentry-test", test_id]  # unique -> a new issue every click
+                sentry_sdk.capture_exception(exc)
+        return Response({'detail': f'Sentry test error {test_id} sent.'}, status=status.HTTP_200_OK)
 
 
 class PasswordResetRequestView(views.APIView):
