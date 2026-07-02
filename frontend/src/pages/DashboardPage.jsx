@@ -47,9 +47,15 @@ export default function DashboardPage() {
           </Button>
         </div>
 
-        {sentryMutation.isError && (
+        {sentryMutation.isSuccess && (
           <Alert variant="info" className="small rounded-3">
-            Error triggered successfully — check Sentry for the captured event.
+            Test error sent to Sentry — a new issue should appear (and notifications fire).
+          </Alert>
+        )}
+
+        {sentryMutation.isError && (
+          <Alert variant="warning" className="small rounded-3">
+            Could not send the test error. Admin access required.
           </Alert>
         )}
 
